@@ -10,6 +10,7 @@
 using System;
 using System.Windows;
 using TP.ConcurrentProgramming.Presentation.ViewModel;
+using TP.ConcurrentProgramming.Data;
 
 namespace TP.ConcurrentProgramming.PresentationView
 {
@@ -18,21 +19,47 @@ namespace TP.ConcurrentProgramming.PresentationView
   /// </summary>
   public partial class MainWindow : Window
   {
-    public MainWindow()
-    {
-      Random random = new Random();
-      InitializeComponent();
-      MainWindowViewModel viewModel = (MainWindowViewModel)DataContext;
-      double screenWidth = SystemParameters.PrimaryScreenWidth;
-      double screenHeight = SystemParameters.PrimaryScreenHeight;
-      viewModel.Start(random.Next(5, 10));
-    }
+        private DataAbstractAPI _dataLayer;
+        public MainWindow()
+        {
+            InitializeComponent();
+            _dataLayer = DataAbstractAPI.GetDataLayer();
+            MainWindowViewModel viewModel = (MainWindowViewModel)DataContext;
+            double screenWidth = SystemParameters.PrimaryScreenWidth;
+            double screenHeight = SystemParameters.PrimaryScreenHeight;
+            SpeedSlider.ValueChanged += SpeedSlider_ValueChanged;
+        }
+        private void SpeedSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            _dataLayer.UpdateSpeed(SpeedSlider.Value);
 
-    /// <summary>
-    /// Raises the <seealso cref="System.Windows.Window.Closed"/> event.
-    /// </summary>
-    /// <param name="e">An <see cref="EventArgs"/> that contains the event data.</param>
-    protected override void OnClosed(EventArgs e)
+            SpeedLabel.Content = $"Speed: {SpeedSlider.Value}";
+        }
+        /// <summary>
+        /// Obsluguje klikniecie przycisku Start Game.
+        /// </summary>
+        private void OnStartGameClick(object sender, RoutedEventArgs e)
+        {
+            MainWindowViewModel viewModel = (MainWindowViewModel)DataContext;
+
+            if (int.TryParse(BallsCountTextBox.Text, out int numberOfBalls) && numberOfBalls > 0)
+            {
+                
+                viewModel.Start(numberOfBalls);
+            }
+            else
+            {
+                
+                MessageBox.Show("Prosze wprowadzic poprawne liczbe kul", "Blad", MessageBoxButton.OK, MessageBoxImage.Error);
+                viewModel.Start(5); 
+            }
+        }
+
+        /// <summary>
+        /// Raises the <seealso cref="System.Windows.Window.Closed"/> event.
+        /// </summary>
+        /// <param name="e">An <see cref="EventArgs"/> that contains the event data.</param>
+        protected override void OnClosed(EventArgs e)
     {
       if (DataContext is MainWindowViewModel viewModel)
         viewModel.Dispose();

@@ -9,24 +9,32 @@
     <Window.DataContext>
         <vm:MainWindowViewModel />
     </Window.DataContext>
-    <Border BorderThickness="4" BorderBrush="Green" Height="420" Width="400">
-        <ItemsControl ItemsSource="{Binding Balls}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <Canvas />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Ellipse Width= "{Binding Diameter}" Height="{Binding Diameter}" Fill="Blue" />
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-            <ItemsControl.ItemContainerStyle>
-                <Style TargetType="ContentPresenter">
-                    <Setter Property="Canvas.Top" Value="{Binding Top}" />
-                    <Setter Property="Canvas.Left" Value="{Binding Left}" />
-                </Style>
-            </ItemsControl.ItemContainerStyle>
-        </ItemsControl>
-    </Border>
+    <Grid>
+        <Border BorderThickness="4" BorderBrush="Green" Height="420" Width="400">
+            <ItemsControl ItemsSource="{Binding Balls}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Canvas />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Ellipse Width= "{Binding Diameter}" Height="{Binding Diameter}" Fill="Blue" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                        <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+            </ItemsControl>
+        </Border>
+        <Label Content="Enter number of balls:" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,20,0,0" />
+        <TextBox x:Name="BallsCountTextBox" HorizontalAlignment="Left" VerticalAlignment="Top" Width="120" Margin="150,20,0,0" />
+        <Button Content="Start Game" HorizontalAlignment="Left" VerticalAlignment="Top" Width="100" Margin="100,70,0,0" Click="OnStartGameClick" />
+        <Label Content="Select Speed (1 to 10):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,120,0,0" />
+        <Slider x:Name="SpeedSlider" Minimum="1" Maximum="10" Value="5" HorizontalAlignment="Left" VerticalAlignment="Top" Width="200" Margin="150,120,0,0" TickFrequency="1" IsSnapToTickEnabled="True" />
+        <Label x:Name="SpeedLabel" Content="Speed: 5" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="150,150,0,0" />
+    </Grid>
 </Window>

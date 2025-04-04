@@ -41,9 +41,43 @@ namespace TP.ConcurrentProgramming.Data
 
     internal void Move(Vector delta)
     {
-      Position = new Vector(Position.x + delta.x, Position.y + delta.y);
-      RaiseNewPositionChangeNotification();
-    }
+         
+            double newX = Position.x + delta.x;
+            double newY = Position.y + delta.y;
+
+            // Wymiary planszy
+            double width = 382; 
+            double height = 402; 
+            double ballSize = 10.0; 
+
+            // Odbicie od ścianek (lewa/prawa)
+            if (newX < 0)
+            {
+                Velocity = new Vector(-Velocity.x, Velocity.y); // Odbicie w poziomie (zmiana prędkości w osi X)
+                newX = 0; // Ustawienie piłki przy lewej krawędzi
+            }
+            else if (newX > width - ballSize)
+            {
+                Velocity = new Vector(-Velocity.x, Velocity.y); // Odbicie w poziomie (zmiana prędkości w osi X)
+                newX = width - ballSize; // Ustawienie piłki przy prawej krawędzi
+            }
+
+            // Odbicie od ścianek (góra/dół)
+            if (newY < 0)
+            {
+                Velocity = new Vector(Velocity.x, -Velocity.y); // Odbicie w pionie (zmiana prędkości w osi Y)
+                newY = 0; // Ustawienie piłki przy górnej krawędzi
+            }
+            else if (newY > height - ballSize)
+            {
+                Velocity = new Vector(Velocity.x, -Velocity.y); // Odbicie w pionie (zmiana prędkości w osi Y)
+                newY = height - ballSize; // Ustawienie piłki przy dolnej krawędzi
+            }
+
+            // Ustawienie nowej pozycji piłki
+            Position = new Vector(newX, newY);
+            RaiseNewPositionChangeNotification();
+        }
 
     #endregion private
   }

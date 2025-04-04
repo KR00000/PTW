@@ -19,8 +19,9 @@ namespace TP.ConcurrentProgramming.Data
 
     public DataImplementation()
     {
-      MoveTimer = new Timer(Move, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
-    }
+      MoveTimer = new Timer(Move, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000/60));
+      
+        }
 
     #endregion ctor
 
@@ -79,17 +80,40 @@ namespace TP.ConcurrentProgramming.Data
     private Random RandomGenerator = new();
     private List<Ball> BallsList = [];
 
-    private void Move(object? x)
+       
+    private double speedFactor = 0.0275;
+
+
+    public override void UpdateSpeed(double newSpeed)
+     {
+          if (Disposed)
+              throw new ObjectDisposedException(nameof(DataImplementation));
+
+          speedFactor = (newSpeed - 1) / 9 * (0.05 - 0.005) + 0.005;
+     }
+
+        private void Move(object? x)
     {
-      foreach (Ball item in BallsList)
-        item.Move(new Vector((RandomGenerator.NextDouble() - 0.5) * 10, (RandomGenerator.NextDouble() - 0.5) * 10));
-    }
+            
 
-    #endregion private
+            foreach (Ball item in BallsList)
+            {
+                
+                Vector velocity = (Vector)item.Velocity;
 
-    #region TestingInfrastructure
+                
+                Vector delta = new Vector(velocity.x * speedFactor, velocity.y * speedFactor);
 
-    [Conditional("DEBUG")]
+               
+                item.Move(delta); 
+            }
+        }
+
+        #endregion private
+
+        #region TestingInfrastructure
+
+        [Conditional("DEBUG")]
     internal void CheckBallsList(Action<IEnumerable<IBall>> returnBallsList)
     {
       returnBallsList(BallsList);
