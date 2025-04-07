@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\PTW",
+    "\\PTW\\ReactiveInteractiveUserInterface",
+    "\\PTW\\ReactiveInteractiveUserInterface\\Data",
+    "\\PTW\\ReactiveInteractiveUserInterface\\DataTest",
+    "\\PTW\\ReactiveInteractiveUserInterface\\GraphicalUserInterface",
+    "\\PTW\\ReactiveInteractiveUserInterface\\PresentationModel",
+    "\\PTW\\ReactiveInteractiveUserInterface\\PresentationModelTest",
+    "\\PTW\\ReactiveInteractiveUserInterface\\PresentationViewModel",
+    "\\PTW\\ReactiveInteractiveUserInterface\\PresentationViewModelTest"
+  ],
+  "SelectedNode": "\\PTW\\ConcurrentProgramming.sln",
+  "PreviewInSolutionExplorer": false
+}
