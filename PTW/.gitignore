@@ -1,0 +1,15 @@
+# Build folders
+bin/
+obj/
+
+# VS foldery lokalne
+.vs/
+*.user
+
+# Dotnet build cache
+*.db
+*.pdb
+*.dll
+
+# System files
+Thumbs.db
