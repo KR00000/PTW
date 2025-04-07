@@ -45,6 +45,13 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         throw new ArgumentNullException(nameof(upperLayerHandler));
       layerBellow.Start(numberOfBalls, (startingPosition, databall) => upperLayerHandler(new Position(startingPosition.x, startingPosition.x), new Ball(databall)));
     }
+    public override void UpdateSpeed(double newSpeed)
+    {
+        if (Disposed)
+            throw new ObjectDisposedException(nameof(BusinessLogicImplementation));
+
+        layerBellow.UpdateSpeed(newSpeed);
+    }
 
     #endregion BusinessLogicAbstractAPI
 

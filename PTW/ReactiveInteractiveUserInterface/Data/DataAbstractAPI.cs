@@ -25,6 +25,8 @@ namespace TP.ConcurrentProgramming.Data
 
     public abstract void Start(int numberOfBalls, Action<IVector, IBall> upperLayerHandler);
 
+    public abstract void UpdateSpeed(double newSpeed);
+
     #endregion public API
 
     #region IDisposable
