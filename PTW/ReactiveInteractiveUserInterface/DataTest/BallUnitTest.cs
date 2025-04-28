@@ -54,35 +54,36 @@ namespace TP.ConcurrentProgramming.Data.Test
 
         }
 
-        // Test czy pilki po obiciu zmieniaja kierunek
         [TestMethod]
-        public void BoundaryCollisionTest()
+        public void ConcurrentVelocityTest()
         {
 
-            Vector position = new(1.0, 200.0);
-            Vector velocity = new(-10.0, 0.0);
-            Ball ball = new(position, velocity);
-            ball.Move(new Vector(-2.0, 0.0));
-            Assert.IsTrue(ball.Velocity.x > 0);
+            Vector initialPosition = new Vector(0.0, 0.0);
+            Vector initialVelocity = new Vector(1.0, 1.0);
+            Ball ball = new(initialPosition, initialVelocity);
+            int taskCount = 100;
+            var tasks = new List<Task>();
 
 
-            position = new(381.0, 200.0);
-            velocity = new(10.0, 0.0);
-            ball = new(position, velocity);
-            ball.Move(new Vector(2.0, 0.0));
-            Assert.IsTrue(ball.Velocity.x < 0);
+            for (int i = 0; i < taskCount; i++)
+            {
+                int index = i;
+                tasks.Add(Task.Run(() => {
+                    if (index % 2 == 0)
+                        ball.Velocity = new Vector(index, index);
+                    else
+                    {
+                        IVector velocity = ball.Velocity;
+                        Assert.IsNotNull(velocity);
+                    }
+                }));
+            }
 
-            position = new(200.0, 1.0);
-            velocity = new(0.0, -10.0);
-            ball = new(position, velocity);
-            ball.Move(new Vector(0.0, -2.0));
-            Assert.IsTrue(ball.Velocity.y > 0);
+            Task.WaitAll(tasks.ToArray());
 
-            position = new(200.0, 391.0);
-            velocity = new(0.0, 10.0);
-            ball = new(position, velocity);
-            ball.Move(new Vector(0.0, 2.0));
-            Assert.IsTrue(ball.Velocity.y < 0);
+            Assert.IsTrue(ball.Velocity.x >= 0);
+            Assert.IsTrue(ball.Velocity.y >= 0);
         }
+
     }
 }

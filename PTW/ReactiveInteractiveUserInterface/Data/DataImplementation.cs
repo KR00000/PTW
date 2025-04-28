@@ -15,6 +15,12 @@ namespace TP.ConcurrentProgramming.Data
 {
     internal class DataImplementation : DataAbstractAPI
     {
+
+        private readonly object ballsListLock = new object();
+        private readonly object speedFactorLock = new object();
+        private List<Ball> BallsList = [];
+        private double speedFactor = 0.0275;
+
         #region ctor
 
         public DataImplementation()
@@ -34,12 +40,16 @@ namespace TP.ConcurrentProgramming.Data
             if (upperLayerHandler == null)
                 throw new ArgumentNullException(nameof(upperLayerHandler));
             Random random = new Random();
-            for (int i = 0; i < numberOfBalls; i++)
+
+            lock (ballsListLock)
             {
-                Vector startingPosition = new(random.Next(100, 400 - 100), random.Next(100, 400 - 100));
-                Ball newBall = new(startingPosition, startingPosition);
-                upperLayerHandler(startingPosition, newBall);
-                BallsList.Add(newBall);
+                for (int i = 0; i < numberOfBalls; i++)
+                {
+                    Vector startingPosition = new(random.Next(100, 400 - 100), random.Next(100, 400 - 100));
+                    Ball newBall = new(startingPosition, startingPosition);
+                    upperLayerHandler(startingPosition, newBall);
+                    BallsList.Add(newBall);
+                }
             }
         }
 
@@ -78,10 +88,6 @@ namespace TP.ConcurrentProgramming.Data
 
         private readonly Timer MoveTimer;
         private Random RandomGenerator = new();
-        private List<Ball> BallsList = [];
-
-
-        private double speedFactor = 0.0275;
 
 
         public override void UpdateSpeed(double newSpeed)
@@ -89,21 +95,38 @@ namespace TP.ConcurrentProgramming.Data
             if (Disposed)
                 throw new ObjectDisposedException(nameof(DataImplementation));
 
-            speedFactor = (newSpeed - 1) / 9 * (0.05 - 0.005) + 0.005;
+            lock (speedFactorLock)
+            {
+                speedFactor = (newSpeed - 1) / 9 * (0.05 - 0.005) + 0.005;
+            }
         }
 
         private void Move(object? x)
         {
+            if (Disposed) return;
 
+            List<Ball> ballsCopy;
+            double currentSpeedFactor;
 
-            foreach (Ball item in BallsList)
+            lock (ballsListLock)
             {
+                ballsCopy = new List<Ball>(BallsList);
+            }
 
-                Vector velocity = (Vector)item.Velocity;
+            lock (speedFactorLock)
+            {
+                currentSpeedFactor = speedFactor;
+            }
 
+            foreach (Ball item in ballsCopy)
+            {
+                Vector velocity;
+                lock (item) 
+                {
+                    velocity = (Vector)item.Velocity;
+                }
 
-                Vector delta = new Vector(velocity.x * speedFactor, velocity.y * speedFactor);
-
+                Vector delta = new Vector(velocity.x * currentSpeedFactor, velocity.y * currentSpeedFactor);
 
                 item.Move(delta);
             }

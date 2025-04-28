@@ -13,64 +13,133 @@ using UnderneathLayerAPI = TP.ConcurrentProgramming.Data.DataAbstractAPI;
 
 namespace TP.ConcurrentProgramming.BusinessLogic
 {
-  internal class BusinessLogicImplementation : BusinessLogicAbstractAPI
-  {
-    #region ctor
-
-    public BusinessLogicImplementation() : this(null)
-    { }
-
-    internal BusinessLogicImplementation(UnderneathLayerAPI? underneathLayer)
+    internal class BusinessLogicImplementation : BusinessLogicAbstractAPI
     {
-      layerBellow = underneathLayer == null ? UnderneathLayerAPI.GetDataLayer() : underneathLayer;
+        private readonly object ballsLock = new object();
+        private List<Ball> balls = new List<Ball>();
+        private Timer collisionTimer;
+        #region ctor
+
+        public BusinessLogicImplementation() : this(null)
+        { }
+
+        internal BusinessLogicImplementation(UnderneathLayerAPI? underneathLayer)
+        {
+            layerBellow = underneathLayer == null ? UnderneathLayerAPI.GetDataLayer() : underneathLayer;
+        }
+
+        #endregion ctor
+
+        #region BusinessLogicAbstractAPI
+
+        public override void Dispose()
+        {
+            if (Disposed)
+                throw new ObjectDisposedException(nameof(BusinessLogicImplementation));
+            collisionTimer?.Dispose();
+            layerBellow.Dispose();
+            Disposed = true;
+        }
+
+        public override void Start(int numberOfBalls, Action<IPosition, IBall> upperLayerHandler)
+        {
+            if (Disposed)
+                throw new ObjectDisposedException(nameof(BusinessLogicImplementation));
+            if (upperLayerHandler == null)
+                throw new ArgumentNullException(nameof(upperLayerHandler));
+            layerBellow.Start(numberOfBalls, (startingPosition, databall) => {
+                // Tworzenie obiektu Ball z rozszerzoną logiką odbijania
+                var ball = new Ball(databall);
+                lock (ballsLock)
+                {
+                    balls.Add(ball);
+                }
+                upperLayerHandler(new Position(startingPosition.x, startingPosition.y), ball);
+            });
+            StartCollisionDetection();
+        }
+        public override void UpdateSpeed(double newSpeed)
+        {
+            if (Disposed)
+                throw new ObjectDisposedException(nameof(BusinessLogicImplementation));
+
+            layerBellow.UpdateSpeed(newSpeed);
+        }
+
+        #endregion BusinessLogicAbstractAPI
+
+        #region private
+
+        private bool Disposed = false;
+
+        private readonly UnderneathLayerAPI layerBellow;
+
+        private void StartCollisionDetection()
+        {
+            // Uruchomienie timera do wykrywania kolizji (80 razy na sekunde)
+            collisionTimer = new Timer(DetectCollisions, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000.0 / 80));
+        }
+
+        private void DetectCollisions(object? state)
+        {
+            if (Disposed) return;
+
+       
+            List<Ball> ballsCopy;
+            lock (ballsLock)
+            {
+                ballsCopy = new List<Ball>(balls);
+            }
+
+            for (int i = 0; i < ballsCopy.Count; i++)
+            {
+                for (int j = i + 1; j < ballsCopy.Count; j++)
+                {
+                    ProcessCollision(ballsCopy[i], ballsCopy[j]);
+                }
+            }
+        }
+
+
+        private void ProcessCollision(Ball ball1, Ball ball2)
+        {
+  
+            Ball firstBall = ball1.GetHashCode() < ball2.GetHashCode() ? ball1 : ball2;
+            Ball secondBall = ball1.GetHashCode() < ball2.GetHashCode() ? ball2 : ball1;
+
+           
+            bool lockTaken1 = false;
+            bool lockTaken2 = false;
+
+            try
+            {
+                Monitor.TryEnter(firstBall, 10, ref lockTaken1);
+                if (lockTaken1)
+                {
+                    Monitor.TryEnter(secondBall, 10, ref lockTaken2);
+                    if (lockTaken2)
+                    {
+                        ball1.HandleCollision(ball2);
+                    }
+                }
+            }
+            finally
+            {
+                if (lockTaken2) Monitor.Exit(secondBall);
+                if (lockTaken1) Monitor.Exit(firstBall);
+            }
+        }
+
+        #endregion private
+
+        #region TestingInfrastructure
+
+        [Conditional("DEBUG")]
+        internal void CheckObjectDisposed(Action<bool> returnInstanceDisposed)
+        {
+            returnInstanceDisposed(Disposed);
+        }
+
+        #endregion TestingInfrastructure
     }
-
-    #endregion ctor
-
-    #region BusinessLogicAbstractAPI
-
-    public override void Dispose()
-    {
-      if (Disposed)
-        throw new ObjectDisposedException(nameof(BusinessLogicImplementation));
-      layerBellow.Dispose();
-      Disposed = true;
-    }
-
-    public override void Start(int numberOfBalls, Action<IPosition, IBall> upperLayerHandler)
-    {
-      if (Disposed)
-        throw new ObjectDisposedException(nameof(BusinessLogicImplementation));
-      if (upperLayerHandler == null)
-        throw new ArgumentNullException(nameof(upperLayerHandler));
-      layerBellow.Start(numberOfBalls, (startingPosition, databall) => upperLayerHandler(new Position(startingPosition.x, startingPosition.x), new Ball(databall)));
-    }
-    public override void UpdateSpeed(double newSpeed)
-    {
-        if (Disposed)
-            throw new ObjectDisposedException(nameof(BusinessLogicImplementation));
-
-        layerBellow.UpdateSpeed(newSpeed);
-    }
-
-    #endregion BusinessLogicAbstractAPI
-
-    #region private
-
-    private bool Disposed = false;
-
-    private readonly UnderneathLayerAPI layerBellow;
-
-    #endregion private
-
-    #region TestingInfrastructure
-
-    [Conditional("DEBUG")]
-    internal void CheckObjectDisposed(Action<bool> returnInstanceDisposed)
-    {
-      returnInstanceDisposed(Disposed);
-    }
-
-    #endregion TestingInfrastructure
-  }
 }
