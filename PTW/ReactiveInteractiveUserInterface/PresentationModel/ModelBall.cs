@@ -68,9 +68,14 @@ namespace TP.ConcurrentProgramming.Presentation.Model
     private double LeftBackingField;
 
     private void NewPositionNotification(object sender, IPosition e)
+{
+    if (e != null)
     {
-      Top = e.y; Left = e.x;
+        Top = e.y;
+        Left = e.x;
     }
+}
+
 
     private void RaisePropertyChanged([CallerMemberName] string propertyName = "")
     {

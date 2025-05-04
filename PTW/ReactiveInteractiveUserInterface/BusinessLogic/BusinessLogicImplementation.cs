@@ -26,6 +26,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         internal BusinessLogicImplementation(UnderneathLayerAPI? underneathLayer)
         {
             layerBellow = underneathLayer == null ? UnderneathLayerAPI.GetDataLayer() : underneathLayer;
+            collisionTimer = new Timer(DetectCollisions, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000.0 / 120));
         }
 
         #endregion ctor
@@ -58,6 +59,8 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             });
             StartCollisionDetection();
         }
+
+
         public override void UpdateSpeed(double newSpeed)
         {
             if (Disposed)
@@ -76,38 +79,40 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
         private void StartCollisionDetection()
         {
-            // Uruchomienie timera do wykrywania kolizji (80 razy na sekunde)
-            collisionTimer = new Timer(DetectCollisions, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000.0 / 80));
+            collisionTimer = new Timer(DetectCollisions, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000.0 / 120));
         }
 
-        private void DetectCollisions(object? state)
+        private async void DetectCollisions(object? state)
         {
             if (Disposed) return;
 
-       
+           
             List<Ball> ballsCopy;
             lock (ballsLock)
             {
                 ballsCopy = new List<Ball>(balls);
             }
 
+            var tasks = new List<Task>();
+
             for (int i = 0; i < ballsCopy.Count; i++)
             {
                 for (int j = i + 1; j < ballsCopy.Count; j++)
                 {
-                    ProcessCollision(ballsCopy[i], ballsCopy[j]);
+                    var localI = i;
+                    var localJ = j;
+                    tasks.Add(Task.Run(() => ProcessCollision(ballsCopy[localI], ballsCopy[localJ])));
                 }
             }
+            await Task.WhenAll(tasks);
         }
 
 
         private void ProcessCollision(Ball ball1, Ball ball2)
         {
-  
             Ball firstBall = ball1.GetHashCode() < ball2.GetHashCode() ? ball1 : ball2;
             Ball secondBall = ball1.GetHashCode() < ball2.GetHashCode() ? ball2 : ball1;
 
-           
             bool lockTaken1 = false;
             bool lockTaken2 = false;
 
@@ -129,6 +134,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 if (lockTaken1) Monitor.Exit(firstBall);
             }
         }
+    
 
         #endregion private
 

@@ -8,11 +8,13 @@
 //
 //_____________________________________________________________________________________________________________________________________
 
+using System.Diagnostics;
+
 namespace TP.ConcurrentProgramming.BusinessLogic
 {
     internal class Ball : IBall
     {
-        private readonly object stateLock = new object();
+        private readonly object stateLock = new();
         private readonly Data.IBall dataBall;
         private Position currentPosition;
 
@@ -20,7 +22,11 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         private readonly double height = 402;
         private readonly double ballSize = 10.0;
 
-        public Ball(Data.IBall ball)
+    
+
+        public event EventHandler<IPosition>? NewPositionNotification;
+
+        internal Ball(Data.IBall ball)
         {
 
             dataBall = ball;
@@ -30,7 +36,6 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
         #region IBall
 
-        public event EventHandler<IPosition>? NewPositionNotification;
 
         public IPosition Position
         {
@@ -51,70 +56,83 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
         private void RaisePositionChangeEvent(object? sender, Data.IVector e)
         {
-            lock (stateLock)
-            {
-                currentPosition = new Position(e.x, e.y);
-                HandleBounce();
+      
+                lock (stateLock)
+                {
+                    currentPosition = new Position(e.x, e.y);
+                }
 
-            }
+                HandleBounce();
+            
         }
+
 
         private void HandleBounce()
         {
+            bool bounced = false;
+            double x, y;
+            Data.IVector velocity;
+            double velocityX, velocityY;
 
             lock (stateLock)
             {
-                double x = currentPosition.x;
-                double y = currentPosition.y;
-                bool bounced = false;
+                if (currentPosition == null)
+                    return;
 
-                Data.IVector velocity = dataBall.Velocity;
-                double velocityX = velocity.x;
-                double velocityY = velocity.y;
-
-                // Odbicie od scianek (lewa/prawa)
-                if (x < 0)
-                {
-                    velocityX = -velocityX;
-                    x = 0;
-                    bounced = true;
-                }
-                else if (x > width - ballSize)
-                {
-                    velocityX = -velocityX;
-                    x = width - ballSize;
-                    bounced = true;
-                }
-
-                // Odbicie od scianek (góra/dół)
-                if (y < 0)
-                {
-                    velocityY = -velocityY;
-                    y = 0;
-                    bounced = true;
-                }
-                else if (y > height - ballSize)
-                {
-                    velocityY = -velocityY;
-                    y = height - ballSize;
-                    bounced = true;
-                }
-
-                if (bounced)
-                {
-                    lock (dataBall)
-                    {
-                        dataBall.Velocity = CreateNewVector(velocityX, velocityY);
-                    }
-                    currentPosition = new Position(x, y);
-
-                }
-                RaisePositionChangeEvent();
+                x = currentPosition.x;
+                y = currentPosition.y;
             }
+
+
+            velocity = dataBall.Velocity;
+            velocityX = velocity.x;
+            velocityY = velocity.y;
+
+            // Odbicie od scianek (lewa/prawa)
+            if (x < 0)
+            {
+                velocityX = -velocityX;
+                x = 0;
+                bounced = true;
+            }
+            else if (x > width - ballSize)
+            {
+                velocityX = -velocityX;
+                x = width - ballSize;
+                bounced = true;
+            }
+
+            // Odbicie od scianek (gora/doł)
+            if (y < 0)
+            {
+                velocityY = -velocityY;
+                y = 0;
+                bounced = true;
+            }
+            else if (y > height - ballSize)
+            {
+                velocityY = -velocityY;
+                y = height - ballSize;
+                bounced = true;
+            }
+
+            if (bounced)
+            {
+                Data.IVector newVelocity = CreateNewVector(velocityX, velocityY);
+                lock (dataBall)
+                {
+                    dataBall.Velocity = newVelocity;
+                }
+
+                lock (stateLock)
+                {
+                    currentPosition = new Position(x, y);
+                }
+            }
+            RaisePositionChangeEvent();
         }
         private Data.IVector CreateNewVector(double x, double y)
         {
-           
             return new Data.Vector(x, y);
 
         }
@@ -134,6 +152,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
         public void HandleCollision(Ball otherBall)
         {
+        
             Ball firstBall = this.GetHashCode() < otherBall.GetHashCode() ? this : otherBall;
             Ball secondBall = this.GetHashCode() < otherBall.GetHashCode() ? otherBall : this;
 
@@ -164,6 +183,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 radius2 = secondBall.Radius;
             }
 
+            // Obliczenia kolizji bez blokad
             dx = pos2.x - pos1.x;
             dy = pos2.y - pos1.y;
             distance = Math.Sqrt(dx * dx + dy * dy);
@@ -183,39 +203,37 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 dy = 0.1;
             }
 
-            // Normalizacja wektora kierunku
+           
             double nx = dx / distance;
             double ny = dy / distance;
 
-            // Obliczanie glebokosci nakładania sie pilek
+           
             double overlap = (radius1 + radius2) - distance;
             double correctionFactor = 1;
             double correctionX = overlap * nx * correctionFactor;
             double correctionY = overlap * ny * correctionFactor;
 
-            // Obliczanie nowych predkosci
+            // Obliczanie nowych prekosci
             double v1n = vel1.x * nx + vel1.y * ny;
             double v2n = vel2.x * nx + vel2.y * ny;
 
+            // Sprawdzamy czy pilki sa blisko siebie
             if (v1n - v2n > 0)
             {
-                // Obliczanie predkości prostopadlej do linii zderzenia
+             
                 double v1t = vel1.x * -ny + vel1.y * nx;
                 double v2t = vel2.x * -ny + vel2.y * nx;
 
                 double restitution = 1.0;
 
-                // Wymiana predkosci normalnych
                 double v1n_after = v2n * restitution;
                 double v2n_after = v1n * restitution;
 
-                // Konwersja do wektorow x, y
                 double v1x_after = v1n_after * nx - v1t * ny;
                 double v1y_after = v1n_after * ny + v1t * nx;
                 double v2x_after = v2n_after * nx - v2t * ny;
                 double v2y_after = v2n_after * ny + v2t * nx;
 
-                // Aktualizacja pozycji i predkosci z odpowiednimi blokadami
                 lock (firstBall.stateLock)
                 {
                     firstBall.currentPosition = new Position(
@@ -240,15 +258,15 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 }
                 catch (Exception ex)
                 {
-       
-                    Console.WriteLine($"Błąd podczas aktualizacji prędkości: {ex.Message}");
+ 
+                    Console.WriteLine($"Error during speed {ex.Message}");
                 }
-
-                firstBall.RaisePositionChangeEvent();
-                secondBall.RaisePositionChangeEvent();
+                Task.Run(() => firstBall.RaisePositionChangeEvent());
+                Task.Run(() => secondBall.RaisePositionChangeEvent());
             }
         }
 
         #endregion private
+
     }
 }

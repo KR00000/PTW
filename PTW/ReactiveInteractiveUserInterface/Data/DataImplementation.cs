@@ -10,6 +10,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace TP.ConcurrentProgramming.Data
 {
@@ -20,12 +21,13 @@ namespace TP.ConcurrentProgramming.Data
         private readonly object speedFactorLock = new object();
         private List<Ball> BallsList = [];
         private double speedFactor = 0.0275;
+       
 
         #region ctor
 
         public DataImplementation()
         {
-            MoveTimer = new Timer(Move, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000 / 65));
+           
 
         }
 
@@ -47,6 +49,7 @@ namespace TP.ConcurrentProgramming.Data
                 {
                     Vector startingPosition = new(random.Next(100, 400 - 100), random.Next(100, 400 - 100));
                     Ball newBall = new(startingPosition, startingPosition);
+                    newBall.Start();
                     upperLayerHandler(startingPosition, newBall);
                     BallsList.Add(newBall);
                 }
@@ -63,8 +66,15 @@ namespace TP.ConcurrentProgramming.Data
             {
                 if (disposing)
                 {
-                    MoveTimer.Dispose();
-                    BallsList.Clear();
+
+                    lock (ballsListLock)
+                    {
+                        foreach (var ball in BallsList)
+                        {
+                            ball.Stop(); 
+                        }
+                        BallsList.Clear();
+                    }
                 }
                 Disposed = true;
             }
@@ -83,10 +93,8 @@ namespace TP.ConcurrentProgramming.Data
 
         #region private
 
-        //private bool disposedValue;
         private bool Disposed = false;
 
-        private readonly Timer MoveTimer;
         private Random RandomGenerator = new();
 
 
@@ -97,41 +105,58 @@ namespace TP.ConcurrentProgramming.Data
 
             lock (speedFactorLock)
             {
-                speedFactor = (newSpeed - 1) / 9 * (0.05 - 0.005) + 0.005;
+                speedFactor = Math.Min(0.05, Math.Max(0.005, (newSpeed - 1) / 9 * (0.05 - 0.005) + 0.005));
             }
-        }
-
-        private void Move(object? x)
-        {
-            if (Disposed) return;
-
-            List<Ball> ballsCopy;
-            double currentSpeedFactor;
 
             lock (ballsListLock)
             {
-                ballsCopy = new List<Ball>(BallsList);
-            }
-
-            lock (speedFactorLock)
-            {
-                currentSpeedFactor = speedFactor;
-            }
-
-            foreach (Ball item in ballsCopy)
-            {
-                Vector velocity;
-                lock (item) 
+                foreach (var ball in BallsList)
                 {
-                    velocity = (Vector)item.Velocity;
+                    ball.SetSpeedFactor(speedFactor);
                 }
-
-                Vector delta = new Vector(velocity.x * currentSpeedFactor, velocity.y * currentSpeedFactor);
-
-                item.Move(delta);
             }
+
         }
 
+        //private async void Move(object? x)
+        //{
+        //    if (Disposed) return;
+
+        //    List<Ball> ballsCopy;
+        //    double currentSpeedFactor;
+
+        //    lock (ballsListLock)
+        //    {
+        //        ballsCopy = new List<Ball>(BallsList);
+        //    }
+
+        //    lock (speedFactorLock)
+        //    {
+        //        currentSpeedFactor = speedFactor;
+        //    }
+
+        //    var tasks = new List<Task>();
+
+        //    foreach (var ball in ballsCopy)
+        //    {
+        //        tasks.Add(Task.Run(() => {
+        //            Vector velocity;
+        //            lock (ball)
+        //            {
+        //                velocity = (Vector)ball.Velocity;
+        //            }
+
+        //            double speedAdjustment = 60.0 / 60;
+        //            Vector delta = new Vector(
+        //                velocity.x * currentSpeedFactor * speedAdjustment,
+        //                velocity.y * currentSpeedFactor * speedAdjustment
+        //            );
+
+        //            ball.Move(delta);
+        //        }));
+        //    }
+        //    await Task.WhenAll(tasks);
+        //}
         #endregion private
 
         #region TestingInfrastructure
