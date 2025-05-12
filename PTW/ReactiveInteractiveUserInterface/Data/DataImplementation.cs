@@ -9,8 +9,10 @@
 //_____________________________________________________________________________________________________________________________________
 
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace TP.ConcurrentProgramming.Data
 {
@@ -19,15 +21,19 @@ namespace TP.ConcurrentProgramming.Data
 
         private readonly object ballsListLock = new object();
         private readonly object speedFactorLock = new object();
+        private readonly ConcurrentQueue<string> logBuffer = new();
         private List<Ball> BallsList = [];
         private double speedFactor = 0.0275;
-       
+        private Timer? addBallTimer;
+        private Timer? logFlushTimer;
+        private Action<IVector, IBall> upperLayerHandler;
+
+
 
         #region ctor
 
         public DataImplementation()
         {
-           
 
         }
 
@@ -35,26 +41,142 @@ namespace TP.ConcurrentProgramming.Data
 
         #region DataAbstractAPI
 
+        //public override void Start(int numberOfBalls, Action<IVector, IBall> upperLayerHandler)
+        //{
+        //    if (Disposed)
+        //        throw new ObjectDisposedException(nameof(DataImplementation));
+        //    if (upperLayerHandler == null)
+        //        throw new ArgumentNullException(nameof(upperLayerHandler));
+
+
+
+        //    this.upperLayerHandler = upperLayerHandler;
+        //    Random random = new Random();
+
+
+        //    lock (ballsListLock)
+        //    {
+        //        for (int i = 0; i < numberOfBalls; i++)
+        //        {
+        //            Vector startingPosition = new(random.Next(100, 400 - 100), random.Next(100, 400 - 100));
+        //            Vector initialVelocity = new Vector((random.NextDouble() * 2 - 1) * 2, (random.NextDouble() * 2 - 1) * 2);
+        //            Ball newBall = new(startingPosition, initialVelocity);
+        //            newBall.SetSpeedFactor(speedFactor);
+        //            newBall.Start();
+        //            upperLayerHandler(startingPosition, newBall);
+        //            BallsList.Add(newBall);
+        //        }
+        //    }
+
+        //    addBallTimer = new Timer(AddNewBall, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        //}
         public override void Start(int numberOfBalls, Action<IVector, IBall> upperLayerHandler)
         {
             if (Disposed)
                 throw new ObjectDisposedException(nameof(DataImplementation));
             if (upperLayerHandler == null)
                 throw new ArgumentNullException(nameof(upperLayerHandler));
-            Random random = new Random();
+
+            addBallTimer?.Dispose();
+            logFlushTimer?.Dispose();
+            this.upperLayerHandler = upperLayerHandler;
 
             lock (ballsListLock)
             {
+                BallsList.Clear();
                 for (int i = 0; i < numberOfBalls; i++)
                 {
-                    Vector startingPosition = new(random.Next(100, 400 - 100), random.Next(100, 400 - 100));
-                    Ball newBall = new(startingPosition, startingPosition);
-                    newBall.Start();
-                    upperLayerHandler(startingPosition, newBall);
-                    BallsList.Add(newBall);
+                    AddSingleBall();
+
                 }
             }
+            addBallTimer = new Timer(_ => AddSingleBall(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            logFlushTimer = new Timer(_ => FlushLogsToFile(), null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+
+
         }
+
+        private void AddSingleBall()
+        {
+            try
+            {
+                Vector position = new(RandomGenerator.Next(100, 300), RandomGenerator.Next(100, 300));
+                Vector velocity = new((RandomGenerator.NextDouble() * 2 - 1) * 2, (RandomGenerator.NextDouble() * 2 - 1) * 2);
+                Ball newBall = new(position, velocity);
+                newBall.SetSpeedFactor(speedFactor);
+
+                lock (ballsListLock)
+                {
+                    BallsList.Add(newBall);
+                }
+
+                newBall.Start();
+
+                logBuffer.Enqueue($"{DateTime.Now:HH:mm:ss} - Dodano kulke na pozycji ({position.x}, {position.y})");
+                upperLayerHandler?.Invoke(position, newBall);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error adding ball: {ex}");
+            }
+        }
+
+        private void FlushLogsToFile()
+        {
+            try
+            {
+                string logPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "ball_log.txt");
+
+                using StreamWriter writer = new(logPath, append: true);
+
+                int linesWritten = 0;
+
+                int ballsAddedInThisFlush = 0;
+
+                while (logBuffer.TryDequeue(out var line))
+                {
+                    writer.WriteLine(line);
+                    linesWritten++;
+                    ballsAddedInThisFlush++;
+                }
+
+                if (ballsAddedInThisFlush > 0)
+                {
+                    Debug.WriteLine($"Zapisano do pliku {ballsAddedInThisFlush} pilek w tej operacji.");
+                    writer.WriteLine($"Zapisano {ballsAddedInThisFlush} pilek w tym zapisie: {DateTime.Now:HH:mm:ss}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Log writing error: {ex}");
+            }
+        }
+        
+
+
+        public override void UpdateSpeed(double newSpeed)
+        {
+            if (Disposed)
+                throw new ObjectDisposedException(nameof(DataImplementation));
+
+            lock (speedFactorLock)
+            {
+                speedFactor = 0.5 + (newSpeed - 1) * (2.0 - 0.5) / 9;
+
+            }
+
+            lock (ballsListLock)
+            {
+                foreach (var ball in BallsList)
+                {
+                    ball.SetSpeedFactor(speedFactor);
+                }
+            }
+
+        }
+
 
         #endregion DataAbstractAPI
 
@@ -66,12 +188,13 @@ namespace TP.ConcurrentProgramming.Data
             {
                 if (disposing)
                 {
-
+                    addBallTimer?.Dispose();
+                    addBallTimer = null;
                     lock (ballsListLock)
                     {
                         foreach (var ball in BallsList)
                         {
-                            ball.Stop(); 
+                            ball.Stop();
                         }
                         BallsList.Clear();
                     }
@@ -98,65 +221,8 @@ namespace TP.ConcurrentProgramming.Data
         private Random RandomGenerator = new();
 
 
-        public override void UpdateSpeed(double newSpeed)
-        {
-            if (Disposed)
-                throw new ObjectDisposedException(nameof(DataImplementation));
 
-            lock (speedFactorLock)
-            {
-                speedFactor = Math.Min(0.05, Math.Max(0.005, (newSpeed - 1) / 9 * (0.05 - 0.005) + 0.005));
-            }
 
-            lock (ballsListLock)
-            {
-                foreach (var ball in BallsList)
-                {
-                    ball.SetSpeedFactor(speedFactor);
-                }
-            }
-
-        }
-
-        //private async void Move(object? x)
-        //{
-        //    if (Disposed) return;
-
-        //    List<Ball> ballsCopy;
-        //    double currentSpeedFactor;
-
-        //    lock (ballsListLock)
-        //    {
-        //        ballsCopy = new List<Ball>(BallsList);
-        //    }
-
-        //    lock (speedFactorLock)
-        //    {
-        //        currentSpeedFactor = speedFactor;
-        //    }
-
-        //    var tasks = new List<Task>();
-
-        //    foreach (var ball in ballsCopy)
-        //    {
-        //        tasks.Add(Task.Run(() => {
-        //            Vector velocity;
-        //            lock (ball)
-        //            {
-        //                velocity = (Vector)ball.Velocity;
-        //            }
-
-        //            double speedAdjustment = 60.0 / 60;
-        //            Vector delta = new Vector(
-        //                velocity.x * currentSpeedFactor * speedAdjustment,
-        //                velocity.y * currentSpeedFactor * speedAdjustment
-        //            );
-
-        //            ball.Move(delta);
-        //        }));
-        //    }
-        //    await Task.WhenAll(tasks);
-        //}
         #endregion private
 
         #region TestingInfrastructure

@@ -21,7 +21,7 @@ namespace TP.ConcurrentProgramming.Data
         private bool isRunning = false;
         private Thread? ballThread;
         private double speedFactor = 0.0275;
-   
+        private Stopwatch stopwatch = new Stopwatch();
 
 
 
@@ -42,15 +42,16 @@ namespace TP.ConcurrentProgramming.Data
             if (isRunning) return;
 
             isRunning = true;
+            stopwatch.Start();
             ballThread = new Thread(() =>
             {
                 while (isRunning)
                 {
                     //Debug.WriteLine($"[Ball Thread] Ball {this.GetHashCode()} is running on Thread ID: {Thread.CurrentThread.ManagedThreadId}");
                     MoveSelf();
-                    Thread.Sleep(1000 / 60); 
+                    Thread.Sleep(1000 / 60);
                 }
-               
+
             });
 
             ballThread.IsBackground = true;
@@ -58,15 +59,22 @@ namespace TP.ConcurrentProgramming.Data
         }
         private void MoveSelf()
         {
+
+
+            double deltaTime = (double)stopwatch.ElapsedTicks / Stopwatch.Frequency;
+            stopwatch.Restart();
+
             Vector currentVelocity;
+            double currentSpeedFactor;
             lock (stateLock)
             {
                 currentVelocity = velocity;
+                currentSpeedFactor = speedFactor;
             }
 
             Vector delta = new(
-                currentVelocity.x * speedFactor,
-                currentVelocity.y * speedFactor
+                currentVelocity.x * speedFactor * deltaTime * 100,
+                currentVelocity.y * speedFactor * deltaTime * 100
             );
 
             Move(delta);
@@ -121,11 +129,13 @@ namespace TP.ConcurrentProgramming.Data
                 positionCopy = new Vector(position.x, position.y);
             }
 
+
+
             EventHandler<IVector>? handler = NewPositionNotification;
             handler?.Invoke(this, positionCopy);
         }
 
-          internal void Move(Vector delta)
+        internal void Move(Vector delta)
         {
 
             lock (stateLock)
@@ -133,9 +143,9 @@ namespace TP.ConcurrentProgramming.Data
                 double newX = position.x + delta.x;
                 double newY = position.y + delta.y;
                 position = new Vector(newX, newY);
-                
+
             }
-           
+
             RaiseNewPositionChangeNotification();
         }
 

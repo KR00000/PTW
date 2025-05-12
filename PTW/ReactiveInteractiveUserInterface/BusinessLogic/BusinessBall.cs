@@ -15,6 +15,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
     internal class Ball : IBall
     {
         private readonly object stateLock = new();
+        private readonly object velocityLock = new();
         private readonly Data.IBall dataBall;
         private Position currentPosition;
 
@@ -119,7 +120,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             if (bounced)
             {
                 Data.IVector newVelocity = CreateNewVector(velocityX, velocityY);
-                lock (dataBall)
+                lock (velocityLock)
                 {
                     dataBall.Velocity = newVelocity;
                 }

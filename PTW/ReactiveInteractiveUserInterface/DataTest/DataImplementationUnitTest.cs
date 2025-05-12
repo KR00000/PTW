@@ -8,6 +8,8 @@
 //
 //_____________________________________________________________________________________________________________________________________
 
+using System.Collections.Concurrent;
+
 namespace TP.ConcurrentProgramming.Data.Test
 {
     [TestClass]
@@ -66,6 +68,72 @@ namespace TP.ConcurrentProgramming.Data.Test
             }
         }
 
+
+        [TestMethod]
+        public void AddSingleBallTestMethod()
+        {
+            // Arrange
+            using (DataImplementation newInstance = new DataImplementation())
+            {
+                int callbackInvoked = 0;
+                IVector? lastPosition = null;
+                IBall? lastBall = null;
+                int expectedBalls = 1;
+
+                Action<IVector, IBall> handler = (position, ball) =>
+                {
+                    callbackInvoked++;
+                    lastPosition = position;
+                    lastBall = ball;
+                };
+
+                newInstance.Start(1, handler);
+
+                newInstance.CheckNumberOfBalls(x => Assert.AreEqual(expectedBalls, x));
+
+                Assert.AreEqual(1, callbackInvoked);
+                Assert.IsNotNull(lastPosition);
+                Assert.IsNotNull(lastBall);
+                Assert.IsTrue(lastPosition.x >= 100 && lastPosition.x <= 300);
+                Assert.IsTrue(lastPosition.y >= 100 && lastPosition.y <= 300);
+
+                Assert.IsNotNull(lastBall.Velocity);
+
+                var logBufferField = typeof(DataImplementation).GetField("logBuffer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var logBuffer = (ConcurrentQueue<string>)logBufferField.GetValue(newInstance);
+                Assert.IsTrue(logBuffer.TryDequeue(out var logEntry));
+                Assert.IsTrue(logEntry.Contains("Dodano kulke na pozycji"));
+            }
+        }
+
+        [TestMethod]
+        public void AddSingleBallMultipleBallsTestMethod()
+        {
+            using (DataImplementation newInstance = new DataImplementation())
+            {
+                int numberOfBalls = 5;
+                int callbackInvoked = 0;
+
+                newInstance.Start(numberOfBalls, (position, ball) => callbackInvoked++);
+
+
+                newInstance.CheckNumberOfBalls(x => Assert.AreEqual(numberOfBalls, x));
+                Assert.AreEqual(numberOfBalls, callbackInvoked);
+
+                var logBufferField = typeof(DataImplementation).GetField("logBuffer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var logBuffer = (ConcurrentQueue<string>)logBufferField.GetValue(newInstance);
+                int logCount = 0;
+                while (logBuffer.TryDequeue(out _))
+                {
+                    logCount++;
+                }
+                Assert.AreEqual(numberOfBalls, logCount);
+            }
+        }
+
+
+
+
         [TestMethod]
         public void UpdateSpeedTestMethod()
         {
@@ -77,16 +145,15 @@ namespace TP.ConcurrentProgramming.Data.Test
 
                 newInstance.UpdateSpeed(7);
                 newInstance.CheckSpeedFactor(x => {
-                    // 0.005 * 7 = 0.035
-                    Assert.IsTrue(x == 0.035);
+                    Assert.IsTrue(x == 1.5);
                 });
 
 
                 newInstance.UpdateSpeed(1);
-                newInstance.CheckSpeedFactor(x => Assert.AreEqual(0.005, x, 0.0001));
+                newInstance.CheckSpeedFactor(x => Assert.IsTrue(x == 0.5));
 
                 newInstance.UpdateSpeed(10);
-                newInstance.CheckSpeedFactor(x => Assert.AreEqual(0.05, x, 0.0001));
+                newInstance.CheckSpeedFactor(x => Assert.IsTrue(x == 2));
             }
         }
 
@@ -105,10 +172,8 @@ namespace TP.ConcurrentProgramming.Data.Test
                     };
                 });
 
-                // Wait for timer to trigger movement
                 Thread.Sleep(200);
 
-                // Verify positions have changed
                 for (int i = 0; i < ballCount; i++)
                 {
                     Assert.AreNotEqual(lastPositions[i].x, 0.0);

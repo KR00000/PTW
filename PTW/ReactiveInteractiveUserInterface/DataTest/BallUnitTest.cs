@@ -85,5 +85,32 @@ namespace TP.ConcurrentProgramming.Data.Test
             Assert.IsTrue(ball.Velocity.y >= 0);
         }
 
+        [TestMethod]
+        public void BallTimeTest()
+        {
+            Vector initialPosition = new Vector(0.0, 0.0);
+            Vector initialVelocity = new Vector(1.0, 0.0);
+            Ball ball = new Ball(initialPosition, initialVelocity);
+
+            Vector lastPosition = new Vector(0.0, 0.0);
+            AutoResetEvent positionUpdated = new AutoResetEvent(false);
+
+            ball.NewPositionNotification += (sender, pos) =>
+            {
+                lastPosition = (Vector)pos;
+                positionUpdated.Set();
+            };
+
+            ball.SetSpeedFactor(30); 
+            ball.Start();
+
+            
+            bool updated = positionUpdated.WaitOne(100);
+            ball.Stop();
+
+            Assert.IsTrue(updated);
+            Assert.IsTrue(lastPosition.x > 0);
+        }
+
     }
 }
